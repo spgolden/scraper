@@ -86,7 +86,7 @@ class SubCategory:
         with open(path + "/metadata.json", "rb") as f:
             this_obj = json.loads(f.read())
             self.items = this_obj.items
-
+    
     def extract_search_links(self, response):
         links = set([])
         base_url = 'http://www.kohls.com'
@@ -142,20 +142,19 @@ class AppCrawler:
         self.categories = []
 
     def crawl(self):
-        # Get subcategories to map
-        self.current_category = "Women's Clothing"
-        self.current_sub_category = "Women's Sweaters"
+        # collect the categories, sub categories, and sub cat links
+        self.collect_categories()
 
-        self.sub_categories_to_visit.append(
-            SubCategory(
-                self.current_sub_category, 
-                self.current_category,
-                "http://www.kohls.com/catalog/womens-sweaters-tops-clothing.jsp?CN=4294720878+4294719467+4294719805+4294719810&PPP=120"
-            )
-        )
+        for cat in self.categories:
+            self.current_category = cat.title
+            print "\n\n\n" + cat.title + "\n\n\n"
 
-        # For each subcategory
-        for cat in self.sub_categories_to_visit:
+            # For each subcategory
+            for sub_cat in cat.sub_categories:
+                self.current_sub_category = sub_cat.title
+                self.visit_subcat(sub_cat)
+
+    def visit_subcat(self, cat):
             # set up filesystem
             path = self.create_node(cat)
 
@@ -163,7 +162,11 @@ class AppCrawler:
                 cat.collect_urls_for_category()
             else:
                 # read from file
-                cat.load_from_file(path)
+                try:
+                    cat.load_from_file(path)
+                except ValueError e:
+                    print 'Problem reading metadata ... repulling'
+                    cat.collect_urls_for_category()
             
             # Save metadata
             cat.save(path=path)
@@ -180,7 +183,8 @@ class AppCrawler:
             print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
             self.items = []
 
-    def collect_sub_categories(self):
+
+    def collect_categories(self):
         url = 'http://www.kohls.com/feature/sitemapmain.jsp'
 
         # Get a mapping of all cats / subcats

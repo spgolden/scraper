@@ -8,3 +8,5 @@ scrape
 kohls-web.py
 data
 *.zip
+*.pyc
+

@@ -15,6 +15,9 @@ from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
 import json
+#import ipdb; ipdb.set_trace()
+
+headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
 class Item:
 
@@ -46,7 +49,13 @@ class Item:
             "url": self.url
         }
         return(this_obj)
-    
+
+class Category:
+    def __init__(self, title):
+        self.title = title
+        self.sub_categories = []
+
+
 class SubCategory:
     def __init__(self, title, parent, url):
         self.title = title
@@ -72,6 +81,11 @@ class SubCategory:
                 "items": list(self.items)
             }
             f.write(json.dumps(this_obj))
+
+    def load_from_file(self, path):
+        with open(path + "/metadata.json", "rb") as f:
+            this_obj = json.loads(f.read())
+            self.items = this_obj.items
 
     def extract_search_links(self, response):
         links = set([])
@@ -100,17 +114,17 @@ class SubCategory:
         driver.quit()
         del driver
 
-        #num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
-        #pages = math.ceil(num_results / 120.0)
+        num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
+        pages = math.ceil(num_results / 120.0)
 
-        #page_args = [str(120*i) for i in range(1, int(pages))]
+        page_args = [str(120*i) for i in range(1, int(pages))]
 
-        #for p in page_args:
-        #    new_url = all_urls + '&WS=%s' % p
-        #    print "Connecting to %s ..." % new_url
-        #    response = parse_javascript_selenium(url=new_url, screen_shot=p)
-        #    divs = response.findAll("div", {"class":"prod_nameBlock"})
-        #    prod_links.update(self.extract_search_links(response))
+        for p in page_args:
+            new_url = all_urls + '&WS=%s' % p
+            print "Connecting to %s ..." % new_url
+            response = parse_javascript_selenium(url=new_url, screen_shot=p)
+            divs = response.findAll("div", {"class":"prod_nameBlock"})
+            prod_links.update(self.extract_search_links(response))
 
         self.items = prod_links
 
@@ -125,6 +139,7 @@ class AppCrawler:
         self.month = datetime.datetime.fromtimestamp(time.time()).strftime('%m')
         self.day = datetime.datetime.fromtimestamp(time.time()).strftime('%d')
         self.items = []
+        self.categories = []
 
     def crawl(self):
         # Get subcategories to map
@@ -148,11 +163,11 @@ class AppCrawler:
                 cat.collect_urls_for_category()
             else:
                 # read from file
-                cat.collect_urls_for_category()
+                cat.load_from_file(path)
             
             # Save metadata
             cat.save(path=path)
- 
+            
             #   visit pages           
             for link in cat.items:
                 self.items.append(self.parse_item(link))
@@ -165,6 +180,27 @@ class AppCrawler:
             print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
             self.items = []
 
+    def collect_sub_categories(self):
+        url = 'http://www.kohls.com/feature/sitemapmain.jsp'
+
+        # Get a mapping of all cats / subcats
+        cats = requests.get(url, headers=headers, verify=False)
+        cats = BeautifulSoup(cats.text) 
+        #import ipdb; ipdb.set_trace()
+
+        # Every ul is a category! neat
+        all_cats = cats.find("div", {"id":"clothing-accessories"}).findAll("ul")
+        
+        for this_cat in all_cats:
+            cat_name = this_cat.previousSibling.previousSibling.text
+            cat = Category(cat_name)
+
+            for sub_cat in this_cat.findAll('a'):
+                sub_name = sub_cat.text
+                sub_link = 'http://www.kohls.com' + sub_cat['href'] + '&PPP=120'
+                cat.sub_categories.append(SubCategory(sub_name, cat_name, sub_link))
+
+            self.categories.append(cat)
 
     def create_node(self, cat):
         #check for hierarchy
@@ -180,7 +216,6 @@ class AppCrawler:
         return(today)        
 
     def parse_item(self, url):
-        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
         box_r = requests.get(url, headers=headers, verify=False)
         box_soup = BeautifulSoup(box_r.text)    
 

@@ -6,3 +6,5 @@ get-pip.py
 scrape
 *.log
 kohls-web.py
+data
+*.zip

@@ -1,0 +1,8 @@
+*.png
+*.ipynb
+.vagrant
+env
+get-pip.py
+scrape
+*.log
+kohls-web.py

@@ -253,7 +253,7 @@ class AppCrawler:
         self.items_to_visit = sub_cat.items    
         for link in sub_cat.items:
             self.items.append(self.parse_item(link))
-            time.sleep(.2)
+            #time.sleep(.2)
         
         file_path = path + "/prices.csv"
 
@@ -371,7 +371,7 @@ def send_sms(msg):
  
     client.messages.create(
         to=config.phone, 
-        from_=from_phone, 
+        from_=config.from_phone, 
         body=msg,  
     )
 

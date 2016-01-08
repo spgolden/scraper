@@ -232,8 +232,6 @@ class AppCrawler:
         # Get a mapping of all cats / subcats
         cats = requests.get(url, headers=headers, verify=False)
         cats = BeautifulSoup(cats.text) 
-        #import ipdb; ipdb.set_trace()
-
         # Every ul is a category! neat
         all_cats = cats.find("div", {"id":"clothing-accessories"}).findAll("ul")
         
@@ -241,12 +239,16 @@ class AppCrawler:
             cat_name = this_cat.previousSibling.previousSibling.text
             cat = Category(cat_name)
 
-            for sub_cat in this_cat.findAll('a'):
-                sub_name = sub_cat.text
-                sub_link = 'http://www.kohls.com' + sub_cat['href'] + '&PPP=120'
-                cat.sub_categories.append(SubCategory(sub_name, cat_name, sub_link))
+            # skip some categories for now for efficiency
+            if cat not in blacklist:
+                print "Collecting links for %s ..." % cat.title
 
-            self.categories.append(cat)
+                for sub_cat in this_cat.findAll('a'):
+                    sub_name = sub_cat.text
+                    sub_link = 'http://www.kohls.com' + sub_cat['href'] + '&PPP=120'
+                    cat.sub_categories.append(SubCategory(sub_name, cat_name, sub_link))
+
+                self.categories.append(cat)
 
     def create_node(self, cat):
         #check for hierarchy

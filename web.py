@@ -128,7 +128,14 @@ class SubCategory:
         prod_links = set([])
         prod_links.update(self.extract_search_links(response))
 
-        num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
+        try:
+            num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
+        except IndexError:
+            print "---Error--- No items found for %s" % all_urls
+            driver.quit()
+            del driver
+            return
+            
         pages = math.ceil(num_results / 120.0)
 
         page_args = [str(120*i) for i in range(1, int(pages))]

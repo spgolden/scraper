@@ -57,7 +57,7 @@ class Item:
             "title": self.title,
             "pid": self.pid,
             "category": self.category,
-            "category": self.sub_category,
+            "sub_category": self.sub_category,
             "price": self.price,
             "orig_price": self.orig_price,
             "time": self.time,

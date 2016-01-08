@@ -63,6 +63,7 @@ class SubCategory:
         self.url = url
         self.path = clean_description(parent) + "/" + clean_description(title)
         self.items = []
+        self.item_count = 1
     
     def __str__(self):
         return ("Title: " + self.title.encode('UTF-8') + 
@@ -190,6 +191,7 @@ class AppCrawler:
 
             # empty the list
             print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
+            self.item_count = 1
             del self.items[:]
             self.items = []
 
@@ -230,7 +232,7 @@ class AppCrawler:
         return(today)        
 
     def parse_item(self, url):
-        print "Parsing %s" % url
+        print "Parsing %(one)s of %(two) ... %(url)s" % {"one": self.item_count, "two": len(self.items), "url":url}
         box_r = requests.get(url, headers=headers, verify=False)
         box_soup = BeautifulSoup(box_r.text)    
 
@@ -250,7 +252,7 @@ class AppCrawler:
             orig_price = 0
         pid = re.search("(prd-[0-9]+)", url).group(0)
         this_time = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
-
+        self.item_count = self.item_count + 1
         return(Item(title, self.current_category, self.current_sub_category, pid, price, orig_price, this_time, url))
 
  

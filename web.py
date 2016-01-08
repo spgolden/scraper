@@ -63,7 +63,6 @@ class SubCategory:
         self.url = url
         self.path = clean_description(parent) + "/" + clean_description(title)
         self.items = []
-        self.item_count = 1
     
     def __str__(self):
         return ("Title: " + self.title.encode('UTF-8') + 
@@ -79,15 +78,15 @@ class SubCategory:
                 "parent": self.parent,
                 "url": self.url,
                 "path": self.path,
-                "items": list(self.items)
+                "items": self.items
             }
             f.write(json.dumps(this_obj))
 
     def load_from_file(self, path):
         with open(path + "/metadata.json", "rb") as f:
             this_obj = json.loads(f.read())
-            self.items = this_obj.items
-    
+            self.items = this_obj['items']
+
     def extract_search_links(self, response):
         links = set([])
         base_url = 'http://www.kohls.com'
@@ -127,7 +126,7 @@ class SubCategory:
             divs = response.findAll("div", {"class":"prod_nameBlock"})
             prod_links.update(self.extract_search_links(response))
 
-        self.items = prod_links
+        self.items = list(prod_links)
 
 class AppCrawler:
 
@@ -141,6 +140,7 @@ class AppCrawler:
         self.day = datetime.datetime.fromtimestamp(time.time()).strftime('%d')
         self.items = []
         self.categories = []
+        self.item_count = 1
 
     def crawl(self):
         # collect the categories, sub categories, and sub cat links
@@ -149,6 +149,12 @@ class AppCrawler:
         except Exception as e:
             print "Error collecting categories ... %s" % e
 
+        # Not toys
+        # makeup
+        # sporting goods
+        # golf
+        # health and beauty
+        # 
         for cat in self.categories:
             self.current_category = cat.title
             print "\n\n\n" + cat.title + "\n\n\n"
@@ -156,32 +162,33 @@ class AppCrawler:
             # For each subcategory
             for sub_cat in cat.sub_categories:
                 self.current_sub_category = sub_cat.title
-                try:
-                    self.visit_subcat(sub_cat)
-                except Exception as e:
-                    print 'Error visiting sub_cat %s' % sub_cat.url
+                #try:
+                self.visit_subcat(sub_cat)
+                #except Exception as e:
+                #    print 'Error visiting sub_cat %s' % sub_cat.url
 
     def visit_subcat(self, cat):
             # set up filesystem
             path = self.create_node(cat)
 
-            try:
-                if not os.path.exists(path + "/metadata.json"):
-                    cat.collect_urls_for_category()
-                else:
-                    # read from file
-                    try:
-                        cat.load_from_file(path)
-                    except ValueError as e:
-                        print 'Problem reading metadata ... repulling'
-                        cat.collect_urls_for_category()
-            
+            #try:
+            if not os.path.exists(path + "/metadata.json"):
+                cat.collect_urls_for_category()
                 # Save metadata
                 cat.save(path=path)
-            except Exception as e:
-                print "Erorr collecting urls for %s" % cat.title
+            else:
+                # read from file
+                #try:
+                cat.load_from_file(path)
+                #except ValueError as e:
+                #print 'Problem reading metadata ... repulling: %s' % e
+                #cat.collect_urls_for_category()
+        
+            #except Exception as e:
+            #    print "Erorr collecting urls for %s" % cat.title
 
-            #   visit pages           
+            #   visit pages       
+            self.items_to_visit = cat.items    
             for link in cat.items:
                 self.items.append(self.parse_item(link))
                 #time.sleep(.5)
@@ -232,7 +239,7 @@ class AppCrawler:
         return(today)        
 
     def parse_item(self, url):
-        print "Parsing %(one)s of %(two) ... %(url)s" % {"one": self.item_count, "two": len(self.items), "url":url}
+        print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
         box_r = requests.get(url, headers=headers, verify=False)
         box_soup = BeautifulSoup(box_r.text)    
 

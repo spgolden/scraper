@@ -135,7 +135,7 @@ class SubCategory:
             driver.quit()
             del driver
             return
-            
+
         pages = math.ceil(num_results / 120.0)
 
         page_args = [str(120*i) for i in range(1, int(pages))]
@@ -326,7 +326,10 @@ class AppCrawler:
 
                 for sub_cat in this_cat.findAll('a'):
                     sub_name = sub_cat.text
-                    sub_link = 'http://www.kohls.com' + sub_cat['href'] + '&PPP=120'
+                    if sub_cat.text == "Womens Coats & Jackets":
+                        sub_link = "http://www.kohls.com/catalog/womens-coats-jackets-outerwear-clothing.jsp?CN=4294720878+4294719370+4294719371+4294719810&cc=womensouterwear-LN2.0-S-shopallwomenscoats"
+                    else:
+                        sub_link = 'http://www.kohls.com' + sub_cat['href'] + '&PPP=120'
                     cat.sub_categories.append(SubCategory(sub_name, cat_name, sub_link))
 
                 self.categories.append(cat)

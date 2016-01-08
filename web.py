@@ -127,8 +127,6 @@ class SubCategory:
         # Start crawling the page results
         prod_links = set([])
         prod_links.update(self.extract_search_links(response))
-        driver.quit()
-        del driver
 
         num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
         pages = math.ceil(num_results / 120.0)
@@ -138,10 +136,15 @@ class SubCategory:
         for p in page_args:
             new_url = all_urls + '&WS=%s' % p
             print "Connecting to %s ..." % new_url
-            response = parse_javascript_selenium(url=new_url)
+            driver.get(new_url)
+            time.sleep(wait)
+            response = BeautifulSoup(driver.page_source)
             divs = response.findAll("div", {"class":"prod_nameBlock"})
             prod_links.update(self.extract_search_links(response))
 
+        # Try and cache some resources...
+        driver.quit()
+        del driver
         self.items = list(prod_links)
 
 class AppCrawler:

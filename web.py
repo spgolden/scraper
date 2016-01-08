@@ -190,6 +190,7 @@ class AppCrawler:
 
             # empty the list
             print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
+            del self.items[:]
             self.items = []
 
 

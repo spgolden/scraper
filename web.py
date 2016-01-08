@@ -15,9 +15,24 @@ from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
 import json
+import config
+from twilio.rest import TwilioRestClient 
 #import ipdb; ipdb.set_trace()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+
+# Categories in clothing to *not* scrape
+blacklist = [
+    "Perfume & Cologne",
+    "Engagement Rings",
+    "Toys",
+    "Jewelry",
+    "Makeup & Skincare",
+    "Sporting Goods",
+    "Golf Apparel & Golf Equipment",
+    "Health & Beauty"
+]
+
 
 class Item:
 

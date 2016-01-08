@@ -210,21 +210,68 @@ class AppCrawler:
             #except Exception as e:
             #    print "Erorr collecting urls for %s" % cat.title
 
-            #   visit pages       
-            self.items_to_visit = cat.items    
-            for link in cat.items:
-                self.items.append(self.parse_item(link))
-                #time.sleep(.5)
-
-            df = pd.DataFrame([item.toDict() for item in self.items])
-            df.to_csv(path + "/prices.csv", sep='\t', encoding='utf-8')
-
+            if self.process_items(path, cat):
+                print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
+            else:
+                print "Problem processing items for %s ..." % cat.title
             # empty the list
-            print "Processed %(num)s items for sub cat %(sub_cat)s" % {'num': len(self.items), 'sub_cat': cat.title}
             self.item_count = 1
             del self.items[:]
             self.items = []
+    
 
+    def collect_results_and_clean(self):
+        today = self.year + "-" + self.month + "-" + self.day
+        all_results = "data/" + today + ".csv"
+        count = 0
+        for dirName, subdirList, fileList in os.walk("data"):
+            if dirName[-10:] == today:
+                this_file = os.path.join(dirName, "prices.csv")
+                if os.path.exists(this_file):
+                    print "Collecting results for %s " % this_file
+                    df = pd.read_csv( this_file, sep="\t", encoding='utf-8')
+                    df.to_csv(all_results, sep='\t', encoding='utf-8', mode='a', header=False)
+                    count = count + len(df)
+                    #os.remove(this_file)
+        print "Total items for {0}: {1}".format(today, count)
+        
+
+    def process_items(self, path, sub_cat):
+        # Check to see which prices exist and remove them from the 
+        #  queue if they've already been collected
+        self.shorten_list_of_items(path, sub_cat)
+        #   visit pages       
+        self.items_to_visit = sub_cat.items    
+        for link in sub_cat.items:
+            self.items.append(self.parse_item(link))
+            time.sleep(.2)
+
+        df = pd.DataFrame([item.toDict() for item in self.items])
+        df.to_csv(path + "/prices.csv", sep='\t', encoding='utf-8')
+
+        return(True)
+
+    def shorten_list_of_items(self, path, sub_cat):
+        path1 = path + "/prices.csv"
+        path2 = "data/" + self.year + "-" + self.month + "-" + self.day + ".csv"        
+
+        if os.path.exists(path1):
+            try:
+                already_ran = pd.read_csv(path1, sep="\t", encoding='utf-8')
+            except Exception:
+                print "Problem reading from file %s" % path1
+
+        # path2 takes precedence
+        if os.path.exists(path2):
+            try:
+                already_ran = pd.read_csv(path2, sep="\t", encoding='utf-8')
+            except Exception:
+                print "Problem reading from file %s" % path2
+
+        old_len = len(sub_cat.items)
+        sub_cat.items = [item for item in sub_cat.items if item not in already_ran['url'].tolist()]
+        print "Found an existing prices file. Removing duplicates ... \
+                old len {0}, new len {1}".format(old_len, len(self.items))
 
     def collect_categories(self):
         url = 'http://www.kohls.com/feature/sitemapmain.jsp'

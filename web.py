@@ -367,7 +367,7 @@ def send_sms(msg):
     client = TwilioRestClient(config.api_key, config.api_secret) 
  
     client.messages.create(
-        to="415-316-2306", 
+        to=config.phone, 
         from_="+12562036079", 
         body=msg,  
     )

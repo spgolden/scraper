@@ -16,6 +16,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
 import json
 import config
+import csv
 from twilio.rest import TwilioRestClient 
 #import ipdb; ipdb.set_trace()
 
@@ -180,15 +181,15 @@ class AppCrawler:
                     #    print 'Error visiting sub_cat %s' % sub_cat.url
 
             self.collect_results_and_clean()
+
+            # success!
+            msg = "Finished at {0}!".format(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
+            send_sms(msg)
+            print msg
         except Exception as e:
             error = "Failure {0} at {1}".format(e, datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
             print error
             send_sms(error)
-
-        # success!
-        msg = "Finished at {0}!".format(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
-        send_sms(msg)
-        print msg
 
     def visit_subcat(self, cat):
             # set up filesystem
@@ -229,8 +230,13 @@ class AppCrawler:
                 this_file = os.path.join(dirName, "prices.csv")
                 if os.path.exists(this_file):
                     print "Collecting results for %s " % this_file
-                    df = pd.read_csv( this_file, sep="\t", encoding='utf-8')
-                    df.to_csv(all_results, sep='\t', encoding='utf-8', mode='a', header=False)
+                    df = pd.read_csv( this_file, encoding='utf-8')
+
+                    # Write headers if first time
+                    if not os.path.exists(all_results):
+                        df.to_csv(all_results, encoding='utf-8', mode='a', header=False, index=False, quoting=csv.QUOTE_ALL)
+                    else:
+                        df.to_csv(all_results, encoding='utf-8', mode='a', header=True, index=False, quoting=csv.QUOTE_ALL)
                     count = count + len(df)
                     #os.remove(this_file)
         print "Total items for {0}: {1}".format(today, count)
@@ -245,31 +251,49 @@ class AppCrawler:
         for link in sub_cat.items:
             self.items.append(self.parse_item(link))
             time.sleep(.2)
+        
+        file_path = path + "/prices.csv"
 
         df = pd.DataFrame([item.toDict() for item in self.items])
-        df.to_csv(path + "/prices.csv", sep='\t', encoding='utf-8')
 
+        # In case we have to restart a download, there may be 
+        #  items already in the file
+        if os.path.exists(file_path):
+            df_orig = pd.read_csv(file_path, encoding='utf-8')
+
+            if len(df.columns) == len(df_orig.columns):
+                df_orig = df_orig[ ~df_orig['url'].isin(df['url'])]
+                df = pd.concat([df_orig, df])
+            else:
+                df = df_orig
+
+        df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
+        
         return(True)
 
     def shorten_list_of_items(self, path, sub_cat):
         path1 = path + "/prices.csv"
         path2 = "data/" + self.year + "-" + self.month + "-" + self.day + ".csv"        
+        already_ran = None
 
         if os.path.exists(path1):
             try:
-                already_ran = pd.read_csv(path1, sep="\t", encoding='utf-8')
+                already_ran = pd.read_csv(path1, encoding='utf-8')
             except Exception:
                 print "Problem reading from file %s" % path1
 
         # path2 takes precedence
         if os.path.exists(path2):
             try:
-                already_ran = pd.read_csv(path2, sep="\t", encoding='utf-8')
+                already_ran = pd.read_csv(path2, encoding='utf-8')
             except Exception:
                 print "Problem reading from file %s" % path2
 
         old_len = len(sub_cat.items)
-        sub_cat.items = [item for item in sub_cat.items if item not in already_ran['url'].tolist()]
+        
+        if already_ran is not None and len(already_ran.columns) > 1:
+            sub_cat.items = [item for item in sub_cat.items if item not in already_ran['url'].tolist()]
+        
         print "Found an existing prices file. Removing duplicates ... \
                 old len {0}, new len {1}".format(old_len, len(self.items))
 
@@ -287,7 +311,7 @@ class AppCrawler:
             cat = Category(cat_name)
 
             # skip some categories for now for efficiency
-            if cat not in blacklist:
+            if cat.title not in blacklist:
                 print "Collecting links for %s ..." % cat.title
 
                 for sub_cat in this_cat.findAll('a'):
@@ -312,6 +336,7 @@ class AppCrawler:
 
     def parse_item(self, url):
         print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
+
         box_r = requests.get(url, headers=headers, verify=False)
         box_soup = BeautifulSoup(box_r.text)    
 

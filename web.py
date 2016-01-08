@@ -143,7 +143,10 @@ class AppCrawler:
 
     def crawl(self):
         # collect the categories, sub categories, and sub cat links
-        self.collect_categories()
+        try:
+            self.collect_categories()
+        except Exception as e:
+            print "Error collecting categories ... %s" % e
 
         for cat in self.categories:
             self.current_category = cat.title
@@ -152,25 +155,31 @@ class AppCrawler:
             # For each subcategory
             for sub_cat in cat.sub_categories:
                 self.current_sub_category = sub_cat.title
-                self.visit_subcat(sub_cat)
+                try:
+                    self.visit_subcat(sub_cat)
+                except Exception as e:
+                    print 'Error visiting sub_cat %s' % sub_cat.url
 
     def visit_subcat(self, cat):
             # set up filesystem
             path = self.create_node(cat)
 
-            if not os.path.exists(path + "/metadata.json"):
-                cat.collect_urls_for_category()
-            else:
-                # read from file
-                try:
-                    cat.load_from_file(path)
-                except ValueError e:
-                    print 'Problem reading metadata ... repulling'
+            try:
+                if not os.path.exists(path + "/metadata.json"):
                     cat.collect_urls_for_category()
+                else:
+                    # read from file
+                    try:
+                        cat.load_from_file(path)
+                    except ValueError as e:
+                        print 'Problem reading metadata ... repulling'
+                        cat.collect_urls_for_category()
             
-            # Save metadata
-            cat.save(path=path)
-            
+                # Save metadata
+                cat.save(path=path)
+            except Exception as e:
+                print "Erorr collecting urls for %s" % cat.title
+
             #   visit pages           
             for link in cat.items:
                 self.items.append(self.parse_item(link))
@@ -220,6 +229,7 @@ class AppCrawler:
         return(today)        
 
     def parse_item(self, url):
+        print "Parsing %s" % url
         box_r = requests.get(url, headers=headers, verify=False)
         box_soup = BeautifulSoup(box_r.text)    
 

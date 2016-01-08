@@ -137,7 +137,7 @@ class SubCategory:
         for p in page_args:
             new_url = all_urls + '&WS=%s' % p
             print "Connecting to %s ..." % new_url
-            response = parse_javascript_selenium(url=new_url, screen_shot=p)
+            response = parse_javascript_selenium(url=new_url)
             divs = response.findAll("div", {"class":"prod_nameBlock"})
             prod_links.update(self.extract_search_links(response))
 
@@ -158,29 +158,37 @@ class AppCrawler:
         self.item_count = 1
 
     def crawl(self):
-        # collect the categories, sub categories, and sub cat links
+        # wrap everything in a notifcation...
         try:
-            self.collect_categories()
+            # collect the categories, sub categories, and sub cat links
+            try:
+                self.collect_categories()
+            except Exception as e:
+                print "Error collecting categories ... %s" % e
+
+            
+            for cat in self.categories:
+                self.current_category = cat.title
+                print "\n\n\n" + cat.title + "\n\n\n"
+
+                # For each subcategory
+                for sub_cat in cat.sub_categories:
+                    self.current_sub_category = sub_cat.title
+                    #try:
+                    self.visit_subcat(sub_cat)
+                    #except Exception as e:
+                    #    print 'Error visiting sub_cat %s' % sub_cat.url
+
+            self.collect_results_and_clean()
         except Exception as e:
-            print "Error collecting categories ... %s" % e
+            error = "Failure {0} at {1}".format(e, datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
+            print error
+            send_sms(error)
 
-        # Not toys
-        # makeup
-        # sporting goods
-        # golf
-        # health and beauty
-        # 
-        for cat in self.categories:
-            self.current_category = cat.title
-            print "\n\n\n" + cat.title + "\n\n\n"
-
-            # For each subcategory
-            for sub_cat in cat.sub_categories:
-                self.current_sub_category = sub_cat.title
-                #try:
-                self.visit_subcat(sub_cat)
-                #except Exception as e:
-                #    print 'Error visiting sub_cat %s' % sub_cat.url
+        # success!
+        msg = "Finished at {0}!".format(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
+        send_sms(msg)
+        print msg
 
     def visit_subcat(self, cat):
             # set up filesystem
@@ -272,12 +280,24 @@ class AppCrawler:
             title = "Out of Stock"
             price = 0
             orig_price = 0
-        pid = re.search("(prd-[0-9]+)", url).group(0)
+        try:
+            pid = re.search("(prd-[a-zA-Z0-9]+)", url).group(0)
+        except AttributeError:
+            pid = "bad-url"
         this_time = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
         self.item_count = self.item_count + 1
         return(Item(title, self.current_category, self.current_sub_category, pid, price, orig_price, this_time, url))
 
+
+def send_sms(msg):
+    client = TwilioRestClient(config.api_key, config.api_secret) 
  
+    client.messages.create(
+        to="415-316-2306", 
+        from_="+12562036079", 
+        body=msg,  
+    )
+
 def clean_description(string):
     string = string.replace("'", '')
     return("".join([c.lower() if c.isalpha() or c.isdigit() else '-' for c in string]).rstrip())

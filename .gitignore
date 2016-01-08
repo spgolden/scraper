@@ -9,4 +9,4 @@ kohls-web.py
 data
 *.zip
 *.pyc
-
+config.py

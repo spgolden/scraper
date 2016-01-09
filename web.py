@@ -169,7 +169,7 @@ class AppCrawler:
         self.categories = []
         self.item_count = 1
 
-    def crawl(self):
+    def crawl(self, debug=False):
         # wrap everything in a notifcation...
         try:
             # collect the categories, sub categories, and sub cat links
@@ -199,6 +199,8 @@ class AppCrawler:
             print msg
         except Exception as e:
             error = "Failure {0} at {1}".format(e, datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
+            if debug:
+              raise
             print error
             send_sms(error)
 
@@ -283,7 +285,7 @@ class AppCrawler:
 
         # In case we have to restart a download, there may be 
         #  items already in the file
-        if os.path.exists(file_path):
+        if os.path.exists(file_path) and os.stat(file_path).st_size > 10:
             df_orig = pd.read_csv(file_path, encoding='utf-8')
 
             if len(df.columns) == len(df_orig.columns):
@@ -292,7 +294,8 @@ class AppCrawler:
             else:
                 df = df_orig
 
-        df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
+        if df.shape[0] > 1:
+		df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
         
         return(True)
 

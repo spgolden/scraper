@@ -18,7 +18,7 @@ import json
 import config
 import csv
 from twilio.rest import TwilioRestClient
-import requests 
+import grequests 
 #import ipdb; ipdb.set_trace()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -168,8 +168,10 @@ class AppCrawler:
         self.items = []
         self.categories = []
         self.item_count = 1
+        self.async = True
 
-    def crawl(self, debug=False):
+    def crawl(self, debug=False, async=True):
+        self.async = async
         # wrap everything in a notifcation...
         try:
             # collect the categories, sub categories, and sub cat links
@@ -264,19 +266,21 @@ class AppCrawler:
 
         # Split links into groups of 10 for async requests
         if self.async:
-            chunks=[sub_cat.items[x:x+10] for x in range(0, len(sub_cat.items), 10)]
+            chunk_size = 20
+            chunks=[sub_cat.items[x:x+chunk_size] for x in range(0, len(sub_cat.items), chunk_size)]
 
             for chunk in chunks:
                 rs = (grequests.get(u) for u in chunk)
                 responses = grequests.map(rs)
+                print "Processing chunks ... {0}".format(chunk)
                 for response in responses:
-                    print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
-                    self.parse_item(response)
+                    print "Parsing %(one)s of %(two)s " % {"one": self.item_count, "two": len(self.items_to_visit)}
+                    self.items.append(self.parse_item(content = response.text, url=response.url))
         else:   
             for link in sub_cat.items:
                 print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
                 box_r = requests.get(url, headers=headers, verify=False)
-                self.items.append(self.parse_item(box_r))
+                self.items.append(self.parse_item(content = box_r.text, url=box_r.url))
                 #time.sleep(.2)
         
         file_path = path + "/prices.csv"
@@ -365,17 +369,17 @@ class AppCrawler:
             os.makedirs(today)
         return(today)        
 
-    def parse_item(self, content):
+    def parse_item(self, content, url):
         box_soup = BeautifulSoup(content)    
 
         try:
             title = box_soup.find('h1', {"class":'title'}).text.strip()
 
             try:
-                price = box_soup.select("div.sale span.price_ammount")[0].text.strip()
-                orig_price = box_soup.select('div.original')[0].text.strip().replace('Original\n \n','').replace('$','')
+                price = box_soup.select("div.sale span.price_ammount")[0].text.replace('$', '').strip()
+                orig_price = box_soup.select('div.original')[0].text.replace('Original\n \n','').replace('$','').strip()
             except Exception:
-                price = box_soup.select("div.original")[0].text.strip().replace('Original\n','').replace('$', '')
+                price = box_soup.select("div.original")[0].text.replace('Original\n','').replace('$', '').strip()
                 orig_price = price
                 
         except Exception:

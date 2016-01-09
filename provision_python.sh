@@ -5,7 +5,7 @@ libpng-dev libjpeg-dev python-dev phantomjs python-pip python-dev build-essentia
 #sudo apt-get -y install numpy
 sudo apt-get -y install python-matplotlib python-scipy python-pandas python-sympy python-nose
 sudo pip install pyzmq jinja2 tornado selenium pandas requests beautifulsoup4
-sudo pip install jupyter twilio
+sudo pip install jupyter twilio grequests
 #sudo npm install -g phantomjs
 sudo pip install --upgrade pip 
 sudo pip install --upgrade virtualenv

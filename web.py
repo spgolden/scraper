@@ -17,7 +17,8 @@ from selenium import webdriver
 import json
 import config
 import csv
-from twilio.rest import TwilioRestClient 
+from twilio.rest import TwilioRestClient
+import requests 
 #import ipdb; ipdb.set_trace()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -257,10 +258,24 @@ class AppCrawler:
         #  queue if they've already been collected
         self.shorten_list_of_items(path, sub_cat)
         #   visit pages       
-        self.items_to_visit = sub_cat.items    
-        for link in sub_cat.items:
-            self.items.append(self.parse_item(link))
-            #time.sleep(.2)
+        self.items_to_visit = sub_cat.items 
+
+        # Split links into groups of 10 for async requests
+        if self.async:
+            chunks=[sub_cat.items[x:x+10] for x in range(0, len(sub_cat.items), 10)]
+
+            for chunk in chunks:
+                rs = (grequests.get(u) for u in chunk)
+                responses = grequests.map(rs)
+                for response in responses:
+                    print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
+                    self.parse_item(response)
+        else:   
+            for link in sub_cat.items:
+                print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
+                box_r = requests.get(url, headers=headers, verify=False)
+                self.items.append(self.parse_item(box_r))
+                #time.sleep(.2)
         
         file_path = path + "/prices.csv"
 
@@ -347,11 +362,8 @@ class AppCrawler:
             os.makedirs(today)
         return(today)        
 
-    def parse_item(self, url):
-        print "Parsing %(one)s of %(two)s ... %(url)s" % {"one": self.item_count, "two": len(self.items_to_visit), "url":url}
-
-        box_r = requests.get(url, headers=headers, verify=False)
-        box_soup = BeautifulSoup(box_r.text)    
+    def parse_item(self, content):
+        box_soup = BeautifulSoup(content)    
 
         try:
             title = box_soup.find('h1', {"class":'title'}).text.strip()

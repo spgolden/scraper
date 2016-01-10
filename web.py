@@ -19,6 +19,7 @@ import config
 import csv
 from twilio.rest import TwilioRestClient
 import grequests 
+import lxml.html
 #import ipdb; ipdb.set_trace()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -32,7 +33,8 @@ blacklist = [
     "Makeup & Skincare",
     "Sporting Goods",
     "Golf Apparel & Golf Equipment",
-    "Health & Beauty"
+    "Health & Beauty",
+    "Baby Gear"
 ]
 
 
@@ -307,7 +309,7 @@ class AppCrawler:
         path1 = path + "/prices.csv"
         path2 = "data/" + self.year + "-" + self.month + "-" + self.day + ".csv"        
         already_ran = None
-
+        
         if os.path.exists(path1):
             try:
                 already_ran = pd.read_csv(path1, encoding='utf-8')
@@ -324,7 +326,12 @@ class AppCrawler:
         old_len = len(sub_cat.items)
         
         if already_ran is not None and len(already_ran.columns) > 1:
-            sub_cat.items = [item for item in sub_cat.items if item not in already_ran['url'].tolist()]
+            tmp = []
+            haystack = already_ran['pid'].tolist()
+            for item in sub_cat.items:
+                if get_pid(item) not in haystack:
+                    tmp.append(item)
+            sub_cat.items = tmp
         
         print "Found an existing prices file. Removing duplicates ... \
                 old len {0}, new len {1}".format(old_len, len(self.items))
@@ -369,31 +376,63 @@ class AppCrawler:
             os.makedirs(today)
         return(today)        
 
-    def parse_item(self, content, url):
-        box_soup = BeautifulSoup(content)    
-
+    def parse_item(self, content, url): 
+        # Use lmxl because speed
+        html = lxml.html.fromstring(content)
         try:
-            title = box_soup.find('h1', {"class":'title'}).text.strip()
-
+            title =  html.xpath('//*[@id="frame"]/div[2]/h1/text()')[0].strip()
+            
             try:
-                price = box_soup.select("div.sale span.price_ammount")[0].text.replace('$', '').strip()
-                orig_price = box_soup.select('div.original')[0].text.replace('Original\n \n','').replace('$','').strip()
-            except Exception:
-                price = box_soup.select("div.original")[0].text.replace('Original\n','').replace('$', '').strip()
-                orig_price = price
-                
+                try:
+                    price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[5]/div/div[1]/div[2]/span[2]/text()')[0])
+                    # This might be an add to bag item
+                except IndexError:
+                    try:
+                        price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[6]/div/div[1]/div[3]/text()')[1])
+                    except IndexError:
+                        #Alternatively, this might be a reg price item
+                        try:
+                            price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[5]/div/div[1]/div[2]/text()')[1])
+                        except IndexError:
+                            # An original price range
+                            try:
+                                price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[5]/div/div[1]/div[3]/text()')[1])
+                            except IndexError:
+                                # Sale only has different html
+                                try:
+                                    price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[6]/div[2]/text()')[1])
+                                except IndexError:
+                                    # Sale ranges have different tags
+                                    #collection_Pricing > div > div.mainprice_container > div.main_price.redFont
+                                    price = clean_price(html.xpath('//*[@id="collection_Pricing"]/div/div[2]/div[2]/text()')[0])
+                try:
+                    orig_price = clean_price(html.xpath('//*[@id="prod_right_content"]/div[1]/div[1]/div[5]/div/div[1]/div[3]/text()')[1])
+                except IndexError:
+                    # This is the same as the regular price
+                    orig_price = price
+            except Exception as e:
+                raise
+                #price = box_soup.select("div.original")[0].text.replace('Original\n','').replace('$', '').strip(' \t\n\r ')
+                #orig_price = price
+
         except Exception:
-            title = "Out of Stock"
+            title = "Out of Stock or Other error"
             price = 0
-            orig_price = 0
+            orig_price = 0    
+                
         try:
-            pid = re.search("(prd-[a-zA-Z0-9]+)", url).group(0)
+            pid = get_pid(url)
         except AttributeError:
             pid = "bad-url"
         this_time = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
         self.item_count = self.item_count + 1
         return(Item(title, self.current_category, self.current_sub_category, pid, price, orig_price, this_time, url))
 
+def clean_price(price):
+    return price.replace('$', '').replace('Original', '').strip(' \t\n\r ')
+
+def get_pid(url):
+    return re.search("(prd-[a-zA-Z0-9]+)", url).group(0)
 
 def send_sms(msg):
     client = TwilioRestClient(config.api_key, config.api_secret) 

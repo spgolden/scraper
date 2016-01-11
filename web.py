@@ -13,7 +13,7 @@ import sys
 import math
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 import json
 import config
 import csv
@@ -123,39 +123,50 @@ class SubCategory:
         except Exception:
             ''
         driver = set_up_browser()
-        driver.get(all_urls)
-        time.sleep(wait)
-        response = BeautifulSoup(driver.page_source)
+        driver.set_page_load_timeout(60)
 
-        # Start crawling the page results
-        prod_links = set([])
-        prod_links.update(self.extract_search_links(response))
-
-        try:
-            num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
-        except IndexError:
-            print "---Error--- No items found for %s" % all_urls
-            driver.quit()
-            del driver
-            return
-
-        pages = math.ceil(num_results / 120.0)
-
-        page_args = [str(120*i) for i in range(1, int(pages))]
-
-        for p in page_args:
-            new_url = all_urls + '&WS=%s' % p
-            print "Connecting to %s ..." % new_url
-            driver.get(new_url)
+        try:            
+            driver.get(all_urls)
             time.sleep(wait)
             response = BeautifulSoup(driver.page_source)
-            divs = response.findAll("div", {"class":"prod_nameBlock"})
+
+            # Start crawling the page results
+            prod_links = set([])
             prod_links.update(self.extract_search_links(response))
 
-        # Try and cache some resources...
-        driver.quit()
-        del driver
-        self.items = list(prod_links)
+            try:
+                num_results = int(response.select(".result_count")[0].text.replace('(', '').replace(')', ''))
+            except IndexError:
+                print "---Error--- No items found for %s" % all_urls
+                driver.quit()
+                del driver
+                return
+
+            pages = math.ceil(num_results / 120.0)
+
+            page_args = [str(120*i) for i in range(1, int(pages))]
+
+            for p in page_args:
+                new_url = all_urls + '&WS=%s' % p
+                print "Connecting to %s ..." % new_url
+                try
+                    driver.get(new_url)
+                    time.sleep(wait)
+                    response = BeautifulSoup(driver.page_source)
+                    divs = response.findAll("div", {"class":"prod_nameBlock"})
+                    prod_links.update(self.extract_search_links(response))
+                except TimeoutException as e:
+                    print "Timed out trying to connect to %s" % all_urls
+
+            # Try and cache some resources...
+            driver.quit()
+            del driver
+            self.items = list(prod_links)
+        except TimeoutException  as e:
+            print "Timed out trying to connect to %s" % all_urls
+            driver.quit()
+            del driver
+            self.items = []
 
 class AppCrawler:
 

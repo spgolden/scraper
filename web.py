@@ -149,7 +149,7 @@ class SubCategory:
             for p in page_args:
                 new_url = all_urls + '&WS=%s' % p
                 print "Connecting to %s ..." % new_url
-                try
+                try:
                     driver.get(new_url)
                     time.sleep(wait)
                     response = BeautifulSoup(driver.page_source)

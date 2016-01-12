@@ -25,16 +25,14 @@ import lxml.html
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
 # Categories in clothing to *not* scrape
-blacklist = [
-    "Perfume & Cologne",
-    "Engagement Rings",
-    "Toys",
-    "Jewelry",
-    "Makeup & Skincare",
-    "Sporting Goods",
-    "Golf Apparel & Golf Equipment",
-    "Health & Beauty",
-    "Baby Gear"
+whitelist = [
+    "Men's Clothing",
+    "Women's Clothing",
+    "Juniors' Clothing",
+    "Men's Dress Clothes",
+    "Girls' Clothing",
+    "Juniors' Clothing",
+    "Kids' Clothing"
 ]
 
 
@@ -361,7 +359,7 @@ class AppCrawler:
             cat = Category(cat_name)
 
             # skip some categories for now for efficiency
-            if cat.title not in blacklist:
+            if cat.title in whitelist:
                 print "Collecting links for %s ..." % cat.title
 
                 for sub_cat in this_cat.findAll('a'):

@@ -38,7 +38,7 @@ whitelist = [
 
 class Item:
 
-    def __init__(self, title, category, sub_category, pid, price, orig_price, time, url):
+    def __init__(self, title, category, sub_category, pid, price, orig_price, time, url, bogo):
         self.title = title
         self.pid = pid
         self.category = category
@@ -47,6 +47,7 @@ class Item:
         self.orig_price = orig_price
         self.time = time
         self.url = url
+        self.bogo = bogo
 
     def __str__(self):
         return ("Title: " + self.title.encode('UTF-8') + 
@@ -264,7 +265,7 @@ class AppCrawler:
                     else:
                         df.to_csv(all_results, encoding='utf-8', mode='a', header=True, index=False, quoting=csv.QUOTE_ALL)
                     count = count + len(df)
-                    #os.remove(this_file)
+                    os.remove(this_file)
         print "Total items for {0}: {1}".format(today, count)
         
 
@@ -419,6 +420,12 @@ class AppCrawler:
                 except IndexError:
                     # This is the same as the regular price
                     orig_price = price
+
+                try:
+                    # See if it is bogo
+                    bogo = html.xpath('//*[@id="largeViewer"]/div[1]/div[1]/img/@alt')[0]
+                except IndexError:
+                    bogo = ''
             except Exception as e:
                 raise
                 #price = box_soup.select("div.original")[0].text.replace('Original\n','').replace('$', '').strip(' \t\n\r ')
@@ -427,7 +434,10 @@ class AppCrawler:
         except Exception:
             title = "Out of Stock or Other error"
             price = 0
-            orig_price = 0    
+            orig_price = 0  
+
+        if not orig_price:
+            orig_price = price
                 
         try:
             pid = get_pid(url)
@@ -435,7 +445,7 @@ class AppCrawler:
             pid = "bad-url"
         this_time = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
         self.item_count = self.item_count + 1
-        return(Item(title, self.current_category, self.current_sub_category, pid, price, orig_price, this_time, url))
+        return(Item(title, self.current_category, self.current_sub_category, pid, price, orig_price, this_time, url, bogo))
 
 def clean_price(price):
     return price.replace('$', '').replace('Original', '').strip(' \t\n\r ')

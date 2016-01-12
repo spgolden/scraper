@@ -28,3 +28,6 @@ EOF'
 #cd /home/vagrant && sudo jupyter notebook --port=80 --ip=0.0.0.0 --no-browser &
 #exit
 #cd /vagrant
+
+# crontab -e
+# 0 1 * * * /usr/bin/python /vagrant/scraper/web.py > /vagrant/scraper/out.log

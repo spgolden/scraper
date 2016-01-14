@@ -390,7 +390,10 @@ class AppCrawler:
         # Use lmxl because speed
         html = lxml.html.fromstring(content)
         try:
-            title =  html.xpath('//*[@id="frame"]/div[2]/h1/text()')[0].strip()
+            title =  html.xpath('//*[@id="frame"]/div[2]/h1/text()')
+            #if len(title) == 0:
+                # It's a collection! run!
+            #   title = html.xpath('//title/text()')[0].strip()
             
             try:
                 try:

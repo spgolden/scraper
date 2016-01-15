@@ -215,7 +215,7 @@ class AppCrawler:
 
                 sub_cats = cat.sub_categories
 
-                for sub_cat in sub_cats[4:5]:
+                for sub_cat in sub_cats:
                     path = self.create_node(sub_cat)
                     if not os.path.exists(path + "/metadata.json"):
                         page = requests.get(sub_cat.url, headers=headers, verify=False)

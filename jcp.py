@@ -62,8 +62,8 @@ class SubCategory:
         html = lxml.html.fromstring(content)
         # Grab categorie titles
         links = html.xpath('//*[@id="UL600000"]/li')
-
-        if self.title != 'dress shirts & ties':
+        
+        if self.title != 'dress shirts & ties' and self.title != 'workout clothes' and self.title != 'jeans':
             for link in links:
                 #  Grab categories
                 self.parse_links(link)
@@ -77,18 +77,13 @@ class SubCategory:
                 links = html.xpath('//*[@id="UL4"]/li')
                 for link in links:
                     self.parse_links(link)
-        else:
-            if len(links) == 0:
-                links = html.xpath('//*[@id="UL5"]/li')
-                for link in links:
-                    self.parse_links(link)
-
-        if self.title == 'jeans':
+        
+        elif self.title == 'jeans':
             links = html.xpath('//*[@id="UL587"]/li')
             for link in links:
                 self.parse_links(link)
 
-        if self.title == 'workout clothes':
+        elif self.title == 'workout clothes':
             links = html.xpath('//*[@id="side_navigation"]/ul/li')
             cur_section = ''
             for link in links:
@@ -104,6 +99,12 @@ class SubCategory:
                         title = link.xpath('a/text()')[0]
                         print "appending... %s" % title
                         self.jcpClasses.append(JCPClass(title, href))
+
+        else:
+            if len(links) == 0:
+                links = html.xpath('//*[@id="UL5"]/li')
+                for link in links:
+                    self.parse_links(link)
 
     def save(self, path):
         with open(path + "/metadata.json", "wb") as f:
@@ -159,8 +160,17 @@ class JCPClass:
     def collect_items(self, content):
         # loop through each page and grab ppId
         html = lxml.html.fromstring(content)
+
         rows =  html.xpath('//*[@id="xgnContent"]/div/div[1]/div[3]/div[1]/div/ul/li')
-        
+
+        # some pages like workout clothes are built differently
+        if len(rows) == 0:
+            rows = html.xpath('//*[@id="xgnContent"]/div/div[1]/div[6]/div[1]/div/ul/li')
+
+        if len(rows) == 0:
+
+            rows = html.xpath('//*[@id="xgnContent"]/div/div/div[3]/div[1]/div/ul/li')
+
         for row in rows:
             links = row.xpath('./div/div/div[2]/span[1]/a/@href')
             links2 = row.xpath('./div/div/div[3]/span[1]/a/@href')
@@ -205,7 +215,7 @@ class AppCrawler:
 
                 sub_cats = cat.sub_categories
 
-                for sub_cat in sub_cats:
+                for sub_cat in sub_cats[4:5]:
                     path = self.create_node(sub_cat)
                     if not os.path.exists(path + "/metadata.json"):
                         page = requests.get(sub_cat.url, headers=headers, verify=False)
@@ -225,9 +235,13 @@ class AppCrawler:
                             try:
                                 page = requests.get(jcp.url, headers=headers, verify=False)
                                 jcp.collect_items(page.content)
-                                
+                               
                                 this_page = lxml.html.fromstring(page.content)
-                                total_items = this_page.xpath('//*[@id="xgnContent"]/div/div[1]/div[2]/div[1]/div[2]/p/text()')[0].strip(' \t\r\n ')
+                                try:
+                                    total_items = this_page.xpath('//*[@id="xgnContent"]/div/div[1]/div[2]/div[1]/div[2]/p/text()')[0].strip(' \t\r\n ')
+                                except IndexError:
+                                    total_items = this_page.xpath('//*[@id="xgnContent"]/div/div/div[5]/div[1]/div[2]/p/text()')[0].strip(' \t\r\n ')
+                                
                                 total_items = int(re.search("(?<=of ).*$", total_items).group(0))
 
                                 # Get the total number of pages
@@ -235,7 +249,7 @@ class AppCrawler:
                                 page_args = [72*i for i in range(1, int(pages))]
 
                                 urls_to_visit = []
-                                base_url = jcp.url[0:len(jcp.url)-23]
+                                base_url = re.sub(r"(<?pageSize=72)$", "", jcp.url)
                                 for page in page_args:
                                     new_url = base_url + "Nao={0}&pageSize=72&pN={1}&extDim=true".format(page, (page/72 + 1))
                                     urls_to_visit.append(new_url)
@@ -261,12 +275,14 @@ class AppCrawler:
                         master_list = []
                         for jcp in sub_cat.jcpClasses:
                             master_list.extend(jcp.toDict())
-                        df = pd.DataFrame(master_list)
-                        df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
+
+                        if len(master_list) > 0:
+                            df = pd.DataFrame(master_list)
+                            df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
                     else:
                         print "Already loaded!"
 
-                    clean_and_compile('data-jcp/mens')
+                    #clean_and_compile('data-jcp/mens')
 
 def clean_and_compile(path):
     count = 0

@@ -190,7 +190,7 @@ class AppCrawler:
         if not os.path.exists(this_path):
             os.makedirs(this_path)
         return(this_path) 
-    
+
     def crawl(self, debug=False, async=True):
         self.async = async
         # wrap everything in a notifcation...
@@ -198,14 +198,14 @@ class AppCrawler:
             url = 'http://www.jcpenney.com/men/dept.jump?id=dept20000014&cmJCP_T=G1&cmJCP_C=D5B'
             self.categories.append(Category("Men's", url))
             #import ipdb; ipdb.set_trace()
-            for cat in self.categories[0:1]:
+            for cat in self.categories:
                 # visit the page
                 page = requests.get(url, headers=headers, verify=False)
                 cat.get_sub_cats(page.content)
 
                 sub_cats = cat.sub_categories
 
-                for sub_cat in sub_cats[0:1]:
+                for sub_cat in sub_cats:
                     path = self.create_node(sub_cat)
                     if not os.path.exists(path + "/metadata.json"):
                         page = requests.get(sub_cat.url, headers=headers, verify=False)
@@ -265,6 +265,29 @@ class AppCrawler:
                         df.to_csv(file_path, encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)
                     else:
                         print "Already loaded!"
+
+                    clean_and_compile('data-jcp/mens')
+
+def clean_and_compile(path):
+    count = 0
+    all_results = path + 'all_items.csv'
+    for dirName, subdirList, fileList in os.walk(path):
+        for this_file in fileList:
+            if re.search('(?=.csv)', this_file):
+                # it's a match!
+                to_read = os.path.join(dirName, this_file)
+                print "Collecting results for %s " % to_read
+                df = pd.read_csv(to_read, encoding='utf-8')
+
+                if not os.path.exists(all_results):
+                    df.to_csv(all_results, encoding='utf-8', header=True, index=False, quoting=csv.QUOTE_ALL)
+                else:
+                    df.to_csv(all_results, encoding='utf-8', mode='a', header=False, index=False, quoting=csv.QUOTE_ALL)
+                
+                count = count + len(df)
+    
+    print "Total items for %s" % count
+
 
 
 def clean_description(string):
